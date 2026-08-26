@@ -14,11 +14,44 @@ let songHistory = [];
 let historyIndex = -1;
 let isPaused = false;
 let currentSongName = null;
+let timeElapsed = 0;
+let songDuration = 0;
+let trackingInterval = null;
+
+
+function getSongDuration(songFilePath) {
+    return new Promise((resolve, reject) => {
+        const afinfoCurrentProcess = spawn('afinfo', [songFilePath]);
+        
+        afinfoCurrentProcess.stdout.on('data', (data) => {
+            const durationMatch = data.toString().split('duration:')[1].split('.')[0].trim().match(/(\d+(\.\d+)?)/);
+            if (durationMatch) {
+                resolve(Number(durationMatch[1]) + 1);
+            } else {
+                reject(new Error('Could not determine song duration'));
+            }
+        });
+        afinfoCurrentProcess.stderr.on('data', (data) => {
+            reject(new Error(data.toString()));
+        });
+    });
+}
+
+
+function startElapsedTracking() {
+    timeElapsed = 0;
+    return setInterval(() => {
+        if (!isPaused && currentProcess) {
+            timeElapsed += 0.1;
+        }
+        listSongs();
+    }, 100);
+}
 
 
 function listSongs() {
     if (availableSongs.length > 0) {
-        process.stdout.write(`\x1b[${availableSongs.length + 1}A\x1b[0J`);
+        process.stdout.write(`\x1b[${availableSongs.length + 2}A\x1b[0J`);
     }
     const state = !currentSongName ? '[ CHOOSE A SONG TO PLAY ]' : isPaused ? '⏸ PAUSED' : '▶ PLAYING';
     console.log(`${state}  ${currentSongName ?? ''}`);
@@ -31,6 +64,12 @@ function listSongs() {
             console.log(`  ${song}`);
         }
     });
+
+   const BAR_WIDTH = 100;
+   const filled = Math.floor((timeElapsed / songDuration) * BAR_WIDTH);
+   const bar = '█'.repeat(filled) + '░'.repeat(BAR_WIDTH - filled);
+   const fmt = s => String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(Math.floor(s % 60)).padStart(2,'0');
+   console.log(`[${bar}] ${fmt(timeElapsed)} / ${fmt(songDuration)}`);    
 }
 
 function playSong(id) {
@@ -44,6 +83,15 @@ function playSong(id) {
         '--no-video', '--quiet', '--intf', 'dummy',
         '--extraintf', 'rc', '--rc-fake-tty', fullPath
     ]);
+
+    if (trackingInterval) clearInterval(trackingInterval);
+    trackingInterval = startElapsedTracking();
+
+    getSongDuration(fullPath).then(duration => {
+        songDuration = duration;
+    }).catch(err => {
+        console.error(`Error getting duration: ${err.message}`);
+    });
 
     if (historyIndex === -1 || songHistory[historyIndex] !== songName) {
         songHistory = songHistory.slice(0, historyIndex + 1);
