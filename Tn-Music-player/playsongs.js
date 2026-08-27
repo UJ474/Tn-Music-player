@@ -48,6 +48,12 @@ function startElapsedTracking() {
     }, 100);
 }
 
+// check for available songs
+// show the current song name and its state (playing/paused)
+// read the songs directory
+// list the available songs with the pointing arrow
+// show progress bar with duration and elapsed time
+
 
 function listSongs() {
     if (availableSongs.length > 0) {
@@ -67,10 +73,15 @@ function listSongs() {
 
    const BAR_WIDTH = 100;
    const filled = Math.floor((timeElapsed / songDuration) * BAR_WIDTH);
-   const bar = '█'.repeat(filled) + '░'.repeat(BAR_WIDTH - filled);
+   const bar = '~'.repeat(filled) + '.'.repeat(BAR_WIDTH - filled);
    const fmt = s => String(Math.floor(s / 60)).padStart(2,'0') + ':' + String(Math.floor(s % 60)).padStart(2,'0');
    console.log(`[${bar}] ${fmt(timeElapsed)} / ${fmt(songDuration)}`);    
 }
+
+// get the playing song using index
+// using path and vlc player spawn the song playing process
+// start getting the elapsed time every 1s
+// add the song in the history to save to go backward
 
 function playSong(id) {
     const idx = parseInt(id) - 1;
@@ -106,7 +117,7 @@ function togglePause() {
     currentProcess.stdin.write('pause\n');
 }
 
-// listSongs();
+listSongs();
 process.stdin.setRawMode(true);
 
 process.stdin.on("data", rawUserInput => {
@@ -147,3 +158,19 @@ process.stdin.on("data", rawUserInput => {
     }
     listSongs();
 });
+
+
+// show the current song playing
+// first arrow navigation version printed songs list again and again. why did that happen, and how did you make the list redraw in the same place, like what was used for this?
+// what implementation was used to pause/resume the song, how was the state managed? how was index managed to saty in the range?
+// ASCI character codes used to detect user input in hex to match which key was pressed
+// 0x03 - Ctrl+C => kills the process
+// 0x1b 0x5b 0x41 - Up arrow => to move index up with min(0, index - 1)
+// 0x1b 0x5b 0x42 - Down arrow => to move index down with max(availableSongs.length - 1, index + 1)
+// 0x0d - Enter => to start the song playing process
+// 0x6e - 'n' key => to increase the index by 1 and play next song
+// 0x62 - 'b' key => to get the last song played in the history
+// 0x70 - 'p' key => to toggle pause/resume the current song
+// for key 'p' the implementation used to manage the state was to keep track of whether the song was paused or playing using a boolean variable isPaused.
+// VLC uses a 'pause/n' command to toggle the playback state.
+// used a promise to get the song duration using the 'afinfo' command and parse the output to extract the duration in seconds.
